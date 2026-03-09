@@ -1,17 +1,11 @@
 {
-  "name": "everest-transliteration-service",
+  "name": "everest-translit",
   "version": "1.0.0",
-  "description": "Transliteration middleware for Everest Universal Translator",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "express": "^4.18.2",
     "transliteration": "^2.3.5",
-    "kuroshiro": "^1.2.0",
-    "kuroshiro-analyzer-kuromoji": "^1.1.0",
-    "hangul-romanization": "^1.0.3",
     "axios": "^1.6.0"
   }
 }

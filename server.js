@@ -1,5 +1,5 @@
 // ================================================================
-// EVEREST TRANSLATION PRO -- SERVER v2.0
+// BABEL PRO AI -- Universal Translator HUD -- SERVER v2.0
 // By Varg Lightfoot
 // ================================================================
 // ENDPOINTS:
@@ -285,13 +285,13 @@ app.post("/summary", async (req, res) => {
 
 // VERSION
 app.get("/version", (req, res) => {
-    res.json({ version: "2.0", name: "Everest Translation Pro", updateAvail: false });
+    res.json({ version: "2.0", name: "BABEL PRO AI -- Universal Translator HUD ", updateAvail: false });
 });
 
 // HEALTH
 app.get("/", (req, res) => {
     res.json({
-        service: "Everest Translation Pro Server v2.0",
+        service: "BABEL PRO AI -- Universal Translator HUD v2.0",
         status:  "online",
         endpoints: ["POST /translate","POST /mood","POST /flirt","POST /language","POST /summary","GET /version"]
     });
@@ -299,6 +299,6 @@ app.get("/", (req, res) => {
 
 // START
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("Everest Translation Pro Server v2.0 running on port " + PORT);
+    console.log("BABEL PRO AI -- Universal Translator HUD Server v2.0 running on port " + PORT);
     console.log("LibreTranslate URL: " + LIBRE_URL);
 });

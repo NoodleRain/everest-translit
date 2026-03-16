@@ -1,12 +1,9 @@
 {
+  "build": {
+    "builder": "NIXPACKS"
+  },
   "deploy": {
-    "startCommand": "node server.js"
+    "startCommand": "node server.js",
+    "restartPolicyType": "ON_FAILURE"
   }
 }
-```
-
-**Step 3 -- Add variables**
-Variables tab → add:
-```
-LIBRE_URL = https://libretranslate-production-b4f1.up.railway.app/translate
-PORT = 3000

@@ -22,6 +22,32 @@ const PORT = process.env.PORT || 3000;
 const LIBRE_URL = process.env.LIBRE_URL ||
     "https://libretranslate-production-b4f1.up.railway.app/translate";
 
+// MyMemory fallback -- free public API, no install needed
+const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
+
+async function translateText(q, source, target) {
+    // Try MyMemory first -- always available
+    try {
+        const langPair = (source === "auto" ? "en" : source) + "|" + target;
+        const url = MYMEMORY_URL + "?q=" + encodeURIComponent(q) + "&langpair=" + langPair;
+        const r = await axios.get(url, { timeout: 10000 });
+        if (r.data && r.data.responseStatus === 200 && r.data.responseData) {
+            return r.data.responseData.translatedText;
+        }
+    } catch(e) {
+        console.log("MyMemory failed:", e.message);
+    }
+    // Fallback to LibreTranslate
+    try {
+        const r = await axios.post(LIBRE_URL, {
+            q, source: source || "auto", target, format: "text", api_key: ""
+        }, { headers: { "Content-Type": "application/json" }, timeout: 15000 });
+        return r.data.translatedText;
+    } catch(e) {
+        throw new Error("All translation services failed: " + e.message);
+    }
+}
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -198,33 +224,15 @@ function summarizeConversation(messages) {
 
 // TRANSLATE + TRANSLITERATE
 app.post("/translate", async (req, res) => {
-    const { q, source, target, format } = req.body;
+    const { q, source, target } = req.body;
     if (!q || !target)
         return res.status(400).json({ error: "Missing q or target" });
-
-    // Try up to 2 times with 2 second delay between attempts
-    for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-            const r = await axios.post(LIBRE_URL, {
-                q, source: source || "auto", target, format: format || "text"
-            }, { headers: { "Content-Type": "application/json" }, timeout: 15000 });
-
-            if (!r.data || !r.data.translatedText)
-                return res.status(500).json({ error: "Empty response from translation service" });
-
-            return res.json({ translatedText: formatOutput(r.data.translatedText) });
-        } catch(err) {
-            if (attempt === 2) {
-                console.error("Translation failed after 2 attempts:", err.message);
-                return res.status(500).json({
-                    error: "Translation service unavailable",
-                    details: err.message,
-                    attempt: attempt
-                });
-            }
-            // Wait 2 seconds before retry
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        }
+    try {
+        const translated = await translateText(q, source || "auto", target);
+        return res.json({ translatedText: formatOutput(translated) });
+    } catch(err) {
+        console.error("Translation failed:", err.message);
+        return res.status(500).json({ error: "Translation failed", details: err.message });
     }
 });
 
@@ -236,12 +244,9 @@ app.post("/mood", async (req, res) => {
     let text = q;
     try {
         if (source && source !== "en") {
-            const r = await axios.post(LIBRE_URL, {
-                q, source: source || "auto", target: "en", format: "text"
-            }, { headers: { "Content-Type": "application/json" }, timeout: 8000 });
-            text = r.data.translatedText || q;
+            text = await translateText(q, source || "auto", "en");
         }
-    } catch(e) {}
+    } catch(e) { text = q; }
 
     const mood  = detectMood(text);
     const flirt = detectFlirt(text);
@@ -262,12 +267,9 @@ app.post("/flirt", async (req, res) => {
     let text = q;
     try {
         if (source && source !== "en") {
-            const r = await axios.post(LIBRE_URL, {
-                q, source: source || "auto", target: "en", format: "text"
-            }, { headers: { "Content-Type": "application/json" }, timeout: 8000 });
-            text = r.data.translatedText || q;
+            text = await translateText(q, source || "auto", "en");
         }
-    } catch(e) {}
+    } catch(e) { text = q; }
     return res.json(detectFlirt(text));
 });
 

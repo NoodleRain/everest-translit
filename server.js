@@ -1,5 +1,5 @@
 // ================================================================
-// BABEL PRO AI -- Universal Translator HUD -- SERVER v2.0
+// EVEREST TRANSLATION PRO -- SERVER v2.0
 // By Varg Lightfoot
 // ================================================================
 // ENDPOINTS:
@@ -201,13 +201,30 @@ app.post("/translate", async (req, res) => {
     const { q, source, target, format } = req.body;
     if (!q || !target)
         return res.status(400).json({ error: "Missing q or target" });
-    try {
-        const r = await axios.post(LIBRE_URL, {
-            q, source: source || "auto", target, format: format || "text"
-        }, { headers: { "Content-Type": "application/json" }, timeout: 10000 });
-        return res.json({ translatedText: formatOutput(r.data.translatedText) });
-    } catch(err) {
-        return res.status(500).json({ error: "Translation failed", details: err.message });
+
+    // Try up to 2 times with 2 second delay between attempts
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const r = await axios.post(LIBRE_URL, {
+                q, source: source || "auto", target, format: format || "text"
+            }, { headers: { "Content-Type": "application/json" }, timeout: 15000 });
+
+            if (!r.data || !r.data.translatedText)
+                return res.status(500).json({ error: "Empty response from translation service" });
+
+            return res.json({ translatedText: formatOutput(r.data.translatedText) });
+        } catch(err) {
+            if (attempt === 2) {
+                console.error("Translation failed after 2 attempts:", err.message);
+                return res.status(500).json({
+                    error: "Translation service unavailable",
+                    details: err.message,
+                    attempt: attempt
+                });
+            }
+            // Wait 2 seconds before retry
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
     }
 });
 
@@ -285,13 +302,18 @@ app.post("/summary", async (req, res) => {
 
 // VERSION
 app.get("/version", (req, res) => {
-    res.json({ version: "2.0", name: "BABEL PRO AI -- Universal Translator HUD ", updateAvail: false });
+    res.json({
+        version:  "v2.0",
+        product:  "BABEL PRO AI",
+        creator:  "Baula16",
+        endpoints: ["/translate", "/mood", "/flirt", "/language", "/summary", "/version"]
+    });
 });
 
 // HEALTH
 app.get("/", (req, res) => {
     res.json({
-        service: "BABEL PRO AI -- Universal Translator HUD v2.0",
+        service: "Everest Translation Pro Server v2.0",
         status:  "online",
         endpoints: ["POST /translate","POST /mood","POST /flirt","POST /language","POST /summary","GET /version"]
     });
@@ -299,6 +321,6 @@ app.get("/", (req, res) => {
 
 // START
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("BABEL PRO AI -- Universal Translator HUD Server v2.0 running on port " + PORT);
+    console.log("Everest Translation Pro Server v2.0 running on port " + PORT);
     console.log("LibreTranslate URL: " + LIBRE_URL);
 });

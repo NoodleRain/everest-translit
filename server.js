@@ -1,5 +1,5 @@
 // ================================================================
-// BABEL PRO AI -- Language Services Server v2.0
+// BABEL PRO AI -- Language Services Server v2.1
 // By Baula16
 // ================================================================
 // ENDPOINTS:
@@ -27,6 +27,50 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// ================================================================
+// SECURITY -- Rate limiting and basic protection
+// ================================================================
+const rateMap = {};
+const RATE_LIMIT    = 60;   // max requests per window per IP
+const RATE_WINDOW   = 60000; // 1 minute window in ms
+const MAX_Q_LENGTH  = 2000;  // max translation text length
+
+function checkRate(ip) {
+    const now = Date.now();
+    if (!rateMap[ip]) rateMap[ip] = { count: 0, reset: now + RATE_WINDOW };
+    if (now > rateMap[ip].reset) {
+        rateMap[ip] = { count: 0, reset: now + RATE_WINDOW };
+    }
+    rateMap[ip].count++;
+    return rateMap[ip].count <= RATE_LIMIT;
+}
+
+// Clean up old rate entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const ip of Object.keys(rateMap)) {
+        if (now > rateMap[ip].reset) delete rateMap[ip];
+    }
+}, 300000);
+
+// Rate limit middleware
+app.use((req, res, next) => {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    if (!checkRate(ip)) {
+        return res.status(429).json({ error: "Too many requests -- slow down" });
+    }
+    next();
+});
+
+// Block suspiciously large requests
+app.use((req, res, next) => {
+    const q = req.body?.q || req.query?.q || "";
+    if (q.length > MAX_Q_LENGTH) {
+        return res.status(400).json({ error: "Text too long -- max 2000 characters" });
+    }
+    next();
+});
 
 // ================================================================
 // TRANSLATION API URLS
@@ -350,7 +394,7 @@ app.post("/summary", async (req, res) => {
 // GET /version -- version check for VersionChecker script
 app.get("/version", (req, res) => {
     res.json({
-        version:   "v2.0",
+        version:   "v2.1",
         product:   "BABEL PRO AI",
         creator:   "Baula16",
         endpoints: ["/translate", "/mood", "/flirt", "/language", "/summary", "/version"]
@@ -360,7 +404,7 @@ app.get("/version", (req, res) => {
 // GET / -- health check
 app.get("/", (req, res) => {
     res.json({
-        service:   "BABEL PRO AI Language Services v2.0",
+        service:   "BABEL PRO AI Language Services v2.1",
         status:    "online",
         creator:   "Baula16",
         endpoints: ["POST /translate","POST /mood","POST /flirt","POST /language","POST /summary","GET /version"]
@@ -369,7 +413,7 @@ app.get("/", (req, res) => {
 
 // START SERVER
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`BABEL PRO AI Language Services v2.0 running on port ${PORT}`);
+    console.log(`BABEL PRO AI Language Services v2.1 running on port ${PORT}`);
     console.log(`LibreTranslate: ${LIBRE_URL}`);
     console.log(`Translation APIs: Lingva -> Argos -> MyMemory -> LibreTranslate`);
 });
